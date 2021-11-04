@@ -45,6 +45,8 @@ elseif length(parallel(1,1,:)) == 4 %16QAM
     end
 elseif length(parallel(1,1,:)) == 6 %64QAM
 
+else
+    output = parallel;
 end
 
 
