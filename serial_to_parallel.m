@@ -3,7 +3,7 @@ function parallel_data = serial_to_parallel(serial_data , N_sub  , symbol_size)
 %Parallel Datastreams
 %   Detailed explanation goes here
 
-parallel_data (1:N_sub,1:length(serial_data)/(N_sub*symbol_size),1:symbol_size) = 0;
+parallel_data = zeros(N_sub,int32(length(serial_data)/(N_sub*symbol_size)),symbol_size);
 counter = 1;
     for i = 1:length(serial_data) / (N_sub * symbol_size)       
         for j = 1 : N_sub

@@ -2,6 +2,7 @@ function output = cyclic_prefix(data,cp_size,N_sub)
 %CYCLIC_PREFIX Summary of this function goes here
 %   Detailed explanation goes here
 y = length(data)/N_sub * (N_sub+cp_size);
+y = int32(y);
 output = zeros(1,y);
 for i = 1:length(data)/N_sub
     x1 = i * N_sub - N_sub + 1;
