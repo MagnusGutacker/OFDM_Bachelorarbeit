@@ -6,14 +6,14 @@ clear;
 N_sub = 4096;                   %Anzahl der Unterträger
 symbol_size = 4;                %Symbolgröße z.B. 2 für 4-Qam oder 4 für 16-QAM
 signal_length = 100;            %Signallänge in OFDM Symbolen
-cp_size = ceil(N_sub/(10*symbol_size)); %cyclic prefix Länge
+cp_size = ceil(N_sub/8);        %cyclic prefix Länge                
 
 taps = [0.2,0.1,0.02,0.05,0.05];%Gewichtung der einzelnen Verzögerungen
 delays = [1,2,3,4,5];           %Verzögerungen des Kanals
 
 %% generate signal
 
-input_signal = randi([0 1],1,N_sub * signal_length);
+input_signal = randi([0 1],1,N_sub * signal_length * symbol_size);
 
 %% serial to parallel
 %konvertiert den seriellen Datenstrom in N_sub parallele Datenströme 
@@ -55,12 +55,12 @@ no_cp = remove_cp (channel_array,cp_size,N_sub);
 %% FFT
 %FFT wird von einem OFDM Symbol gebildet, das die Länge von N_sub hat
 
-ifft_array_serial = serial_to_parallel(no_cp,N_sub,1);
+ifft_array_parallel = serial_to_parallel(no_cp,N_sub,1);
 
-for j = 1 : (signal_length/symbol_size)
+for j = 1 : (signal_length)
     x = j * N_sub - N_sub + 1;
     y = j * N_sub;
-    fft_array(x:y) = fft(ifft_array_serial(:,j)); 
+    fft_array(x:y) = fft(ifft_array_parallel(:,j)); 
 end
 
 %% demodulate QAM
@@ -84,3 +84,5 @@ subplot(2,1,2);
 z = interp(ifft_array(1,1:256),4);
 plot(-length(z)/2:length(z)/2-1,fftshift(abs(fft(z))));
 
+numberOfZeros = sum(BER(:)==0);
+1 - numberOfZeros/length(BER)
