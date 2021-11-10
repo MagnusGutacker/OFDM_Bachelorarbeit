@@ -3,11 +3,14 @@ clear;
 %OFDM
 %% Declare parameters
 
-N_sub = 4096;                   %Anzahl der Unterträger
+N_sub = 64;                   %Anzahl der Unterträger
 symbol_size = 4;                %Symbolgröße z.B. 2 für 4-Qam oder 4 für 16-QAM
 signal_length = 100;            %Signallänge in OFDM Symbolen
 cp_size = ceil(N_sub/8);        %cyclic prefix Länge                
-
+f = 5e9;                        %Trägerfrequenz
+fs = 2e7;                       %Bandbreite
+Ts = 1/fs;                      %Symboldauer
+var = 20;                       %Varianz/SNR
 taps = [0.2,0.1,0.02,0.05,0.05];%Gewichtung der einzelnen Verzögerungen
 delays = [1,2,3,4,5];           %Verzögerungen des Kanals
 
@@ -23,7 +26,7 @@ parallel = serial_to_parallel(input_signal,N_sub,symbol_size);
 %% QAM
 %Bits werden in QAM-Symbole moduliert
 
-QAM_modulated  = QAM(parallel);
+[QAM_modulated,norm]  = QAM(parallel);
 
 %% IFFT
 %Die IFFT der parallelen Symbole wird berechnet
@@ -34,17 +37,20 @@ for j = 1 : length(QAM_modulated(1,:))
     ifft_array (x:y) = ifft(QAM_modulated(:,j)); 
 end
 
-ifft_array = (ifft_array); %abs?
 %% cyclic prefix
 
 cp = cyclic_prefix(ifft_array,cp_size,N_sub);
 
 %% shift to passband
 
-%% Channel
-%Tapped Dealy channel 
+%cp = upconversion(cp,fs,f);
 
-channel_array = tapped_delay_channel(cp,taps,delays);
+%% Channel
+channel_array = cp;
+%Tapped Dealy channel 
+channel_array = tapped_delay_channel(channel_array,taps,delays);
+%AWGN-Channel
+channel_array = AWGN_channel(channel_array,var);
 
 %% shift to baseband
 
@@ -66,7 +72,7 @@ end
 %% demodulate QAM
 %QAM-Symbole werden in Bits demoduliert
 
-QAM_demodulated = QAM_demod(fft_array,symbol_size);
+QAM_demodulated = QAM_demod(fft_array,symbol_size,norm);
 
 %% parallel to serial
 
@@ -83,6 +89,13 @@ plot(1:length(BER),BER);
 subplot(2,1,2);
 z = interp(ifft_array(1,1:256),4);
 plot(-length(z)/2:length(z)/2-1,fftshift(abs(fft(z))));
+hold off;
+
+
+scatterplot(reshape(QAM_modulated,1,[]));
+
+scatterplot(fft_array);
+
 
 numberOfZeros = sum(BER(:)==0);
 1 - numberOfZeros/length(BER)
