@@ -1,9 +1,12 @@
-function demod = QAM_demod(QAM_signal,size)
+function demod = QAM_demod(QAM_signal,size,norm)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
+QAM_signal = QAM_signal/norm;
+
 output = zeros(length(QAM_signal(:,1)),length(QAM_signal(1,:))*size);
 counter = 1;
+
 if size == 2
     for j = 1 : length(QAM_signal(1,:))
         for i = 1 : length(QAM_signal(:,1))

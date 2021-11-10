@@ -1,6 +1,9 @@
-function output = QAM (parallel)
+function [output,norm] = QAM (parallel)
 %QAM vonverts data to QAM symbols
 %   Detailed explanation goes here
+
+
+% also ppassible to use qammod() function
 
 output(1:length(parallel(:,1,1)),1:length(parallel(1,:,1))) = 0;
 if length(parallel(1,1,:)) == 2 %4QAM
@@ -16,8 +19,10 @@ if length(parallel(1,1,:)) == 2 %4QAM
             elseif parallel(j,i,2) == 1
                 output(j,i) = output(j,i) - 1i;
             end
+            
         end
     end
+    refconst = qammod(0:3,4);
 elseif length(parallel(1,1,:)) == 4 %16QAM
     for j = 1:length(parallel(:,1,1))
         for i = 1:length(parallel(1,:,1))
@@ -43,11 +48,16 @@ elseif length(parallel(1,1,:)) == 4 %16QAM
             end
         end
     end
+    refconst = qammod(0:15,16);
 elseif length(parallel(1,1,:)) == 6 %64QAM
 
 else
     output = parallel;
 end
+
+
+norm = modnorm(refconst,'avpow',1);
+output = norm*output;
 
 
     
