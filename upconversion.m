@@ -1,11 +1,11 @@
-function output = upconversion(data,fs,f)
+function output = upconversion(data,fs,fc)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
-t = 0:1/fs: (length(data)-1)/fs;
-%e = exp(1i*2*pi*f*t);
-r = cos(2*pi*f*t);
-i = -sin(2*pi*f*t);
-output = e .* data;
+data = interp(data,50);
+t = 0:1/(fs*50):(length(data)-1)/(fs*50);
+
+output = data .* exp(-1i*2*pi*fc*t);
+
 end
 
