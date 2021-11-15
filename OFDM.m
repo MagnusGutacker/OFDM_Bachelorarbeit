@@ -3,14 +3,15 @@ clear;
 %OFDM
 %% Declare parameters
 
-N_sub = 64;                   %Anzahl der Unterträger
+signal_in_passband = true;      %true for frequency modulation
+
+N_sub = 64;                     %Anzahl der Unterträger
 symbol_size = 4;                %Symbolgröße z.B. 2 für 4-Qam oder 4 für 16-QAM
 signal_length = 100;            %Signallänge in OFDM Symbolen
 cp_size = ceil(N_sub/8);        %cyclic prefix Länge                
-f = 5e9;                        %Trägerfrequenz
-fs = 2e7;                       %Bandbreite
-Ts = 1/fs;                      %Symboldauer
-var = 20;                       %Varianz/SNR
+fc = 5e9;                       %Trägerfrequenz
+fs = 4e7;                       %Bandbreite
+var = 15;                       %Varianz/SNR
 taps = [0.2,0.1,0.02,0.05,0.05];%Gewichtung der einzelnen Verzögerungen
 delays = [1,2,3,4,5];           %Verzögerungen des Kanals
 
@@ -43,8 +44,9 @@ cp = cyclic_prefix(ifft_array,cp_size,N_sub);
 
 %% shift to passband
 
-%cp = upconversion(cp,fs,f);
-
+if (signal_in_passband)
+    cp = upconversion(cp,fs,fc);
+end
 %% Channel
 channel_array = cp;
 %Tapped Dealy channel 
@@ -54,6 +56,9 @@ channel_array = AWGN_channel(channel_array,var);
 
 %% shift to baseband
 
+if (signal_in_passband)
+    channel_array = downconversion(channel_array,fs,fc);
+end
 %% remove cyclic prefix
 
 no_cp = remove_cp (channel_array,cp_size,N_sub);
@@ -78,24 +83,30 @@ QAM_demodulated = QAM_demod(fft_array,symbol_size,norm);
 
 output_signal = parallel_to_serial(QAM_demodulated);
 
+%% Fehlerraten
+%BER
+BitFehler = output_signal - input_signal;
+numberOfZeros = sum(BitFehler(:)==0);
+BER = 1 - numberOfZeros/length(BitFehler);
+
+%SER
+SymbolFehler = reshape(QAM_modulated,1,[]) - reshape(QAM(serial_to_parallel(output_signal,N_sub,symbol_size)),1,[]);
+numberOfZeros = sum(SymbolFehler(:)==0);
+SER = 1 - numberOfZeros/length(SymbolFehler);
+
 %% test plots
+if (signal_in_passband)
+    figure('Name' , "Plots");
+    hold on;
+    title('Passband Signal');
+    xlabel('Frequenz f in GHz');
+    ylabel('Amplitude');
+    z = interp(cp,2);
+    f = -(fs*500)/(2):fs*500/(length(z)):(fs*500)/(2)-1;
+    f = f/1000000000; %GHz
+    plot(f,fftshift(abs(fft(z))));
+    hold off;
+end
 
-figure('Name' , "Plots");
-hold on;
-subplot(2,1,1);
-BER = output_signal - input_signal;
-plot(1:length(BER),BER);
-
-subplot(2,1,2);
-z = interp(ifft_array(1,1:256),4);
-plot(-length(z)/2:length(z)/2-1,fftshift(abs(fft(z))));
-hold off;
-
-
-scatterplot(reshape(QAM_modulated,1,[]));
-
-scatterplot(fft_array);
-
-
-numberOfZeros = sum(BER(:)==0);
-1 - numberOfZeros/length(BER)
+%scatterplot(reshape(QAM_modulated,1,[]));
+%scatterplot(fft_array);
