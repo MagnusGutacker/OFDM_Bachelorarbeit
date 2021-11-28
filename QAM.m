@@ -4,7 +4,7 @@ function [output,norm] = QAM (parallel)
 
 
 % also ppassible to use qammod() function
-
+refconst = 1;
 output(1:length(parallel(:,1,1)),1:length(parallel(1,:,1))) = 0;
 if length(parallel(1,1,:)) == 2 %4QAM
     for j = 1:length(parallel(:,1,1))
