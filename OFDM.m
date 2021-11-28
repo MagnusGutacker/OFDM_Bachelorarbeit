@@ -3,18 +3,20 @@ clear;
 %OFDM
 %% Declare parameters
 
-signal_in_passband = true;      %true for frequency modulation
+signal_in_passband = false;      %true for frequency modulation
 
 N_sub = 64;                     %Anzahl der Unterträger
-symbol_size = 4;                %Symbolgröße z.B. 2 für 4-Qam oder 4 für 16-QAM
+symbol_size = 2;                %Symbolgröße z.B. 2 für 4-Qam oder 4 für 16-QAM
 signal_length = 100;            %Signallänge in OFDM Symbolen
 cp_size = ceil(N_sub/8);        %cyclic prefix Länge                
 fc = 5e9;                       %Trägerfrequenz
 fs = 4e7;                       %Bandbreite
-var = 15;                       %Varianz/SNR
-taps = [0.2,0.1,0.02,0.05,0.05];%Gewichtung der einzelnen Verzögerungen
-delays = [1,2,3,4,5];           %Verzögerungen des Kanals
+SNR = -10:2:10;                       %Varianz/SNR
+taps = [1,0.6,-0.4,0.3,0.2,0.05];%Gewichtung der einzelnen Verzögerungen
+delays = [0,1,2,3,4,5];           %Verzögerungen des Kanals
 
+for i = 1:length(SNR)
+    for a = 1:4
 %% generate signal
 
 input_signal = randi([0 1],1,N_sub * signal_length * symbol_size);
@@ -49,19 +51,32 @@ if (signal_in_passband)
 end
 %% Channel
 channel_array = cp;
-%Tapped Dealy channel 
-channel_array = tapped_delay_channel(channel_array,taps,delays);
+if(x==1||x==2)
+%Tapped Delay channel 
+channel_array = tapped_delay_channel(channel_array,taps);
+end
 %AWGN-Channel
-channel_array = AWGN_channel(channel_array,var);
+channel_array = AWGN_channel(channel_array,SNR(i));
 
+%% Equalization
+%zf-Equalizer 
+if (x==1)
+    equalized = zf_equalizer(channel_array,taps);
+elseif (x==4)
+    equalized = MMSE(channel_array,taps,SNR);
+else
+    equalized = channel_array;
+end
+%MLSEeq/Viterbi Equalizer
+%equalized = mlseeq(channel_array,taps,[1+1i 1-1i -1+1i -1-1i],length(delays),'cont');
 %% shift to baseband
-
+baseband_signal = equalized;
 if (signal_in_passband)
-    channel_array = downconversion(channel_array,fs,fc);
+    baseband_signal = downconversion(baseband_signal,fs,fc);
 end
 %% remove cyclic prefix
 
-no_cp = remove_cp (channel_array,cp_size,N_sub);
+no_cp = remove_cp (baseband_signal,cp_size,N_sub);
 
 %% FFT
 %FFT wird von einem OFDM Symbol gebildet, das die Länge von N_sub hat
@@ -83,11 +98,12 @@ QAM_demodulated = QAM_demod(fft_array,symbol_size,norm);
 
 output_signal = parallel_to_serial(QAM_demodulated);
 
+
 %% Fehlerraten
 %BER
 BitFehler = output_signal - input_signal;
 numberOfZeros = sum(BitFehler(:)==0);
-BER = 1 - numberOfZeros/length(BitFehler);
+BER(i,a) = 1 - numberOfZeros/length(BitFehler);
 
 %SER
 SymbolFehler = reshape(QAM_modulated,1,[]) - reshape(QAM(serial_to_parallel(output_signal,N_sub,symbol_size)),1,[]);
@@ -95,18 +111,26 @@ numberOfZeros = sum(SymbolFehler(:)==0);
 SER = 1 - numberOfZeros/length(SymbolFehler);
 
 %% test plots
-if (signal_in_passband)
-    figure('Name' , "Plots");
-    hold on;
-    title('Passband Signal');
-    xlabel('Frequenz f in GHz');
-    ylabel('Amplitude');
-    z = interp(cp,2);
-    f = -(fs*500)/(2):fs*500/(length(z)):(fs*500)/(2)-1;
-    f = f/1000000000; %GHz
-    plot(f,fftshift(abs(fft(z))));
-    hold off;
+% if (signal_in_passband)
+%     figure('Name' , "Plots");
+%     hold on;
+%     title('Passband Signal');
+%     xlabel('Frequenz f in GHz');
+%     ylabel('Amplitude');
+%     z = interp(cp,2);
+%     f = -(fs*500)/(2):fs*500/(length(z)):(fs*500)/(2)-1;
+%     f = f/1000000000; %GHz
+%     plot(f,fftshift(abs(fft(z))));
+%     hold off;
+% end
+    end
 end
-
+figure('Name',"BER/SNR of equalized and not equalized Signal");
+hold on;
+xlabel("SNR in dB");
+ylabel("BER");
+set(gca,'YScale','log')
+axis([ SNR(1) SNR(end) 10^(-5) 1]);
+plot(SNR,BER);
 %scatterplot(reshape(QAM_modulated,1,[]));
 %scatterplot(fft_array);
