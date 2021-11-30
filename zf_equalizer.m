@@ -2,18 +2,20 @@ function output = zf_equalizer(data,taps)
 %ZF_EQUALIZER Summary of this function goes here
 %   Detailed explanation goes here
 
-H = zeros(length(taps)+length(taps)-1,length(taps));
+%L = length(taps)-1;
+M = length(taps)+30;
+%H = zeros(L+M+1,M+1);
 
-for i = 1:length(taps)
-    H(i:i+length(taps)-1,i) = taps; 
-end
+H = convmtx(taps,M);
 
-I = zeros(length(taps)+length(taps)-1,1);
-I(1) = 1;
+I = zeros(size(pinv(H),2), 1,1);
+I(1)=1;
 
-f = linsolve(H,I);
+f = pinv(H)*I;
 
-output = filter(f,1,data);
+output = conv(f,data);
+output(length(data)+1:end) = [];
+%output = filter(f,1,data);
 
 end
 
