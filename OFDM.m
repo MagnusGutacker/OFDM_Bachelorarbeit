@@ -11,9 +11,9 @@ signal_length = 1000;            %Signallänge in OFDM Symbolen
 cp_size = ceil(N_sub/8);        %cyclic prefix Länge                
 fc = 5e9;                       %Trägerfrequenz
 fs = 4e7;                       %Bandbreite
-SNR = -10:2:16;                       %Varianz/SNR
-taps = [1,4,0.5,0.4,0.2];%Gewichtung der einzelnen Verzögerungen
-delays = [0,1,2,3,4];           %Verzögerungen des Kanals
+SNR = -10:3:20;                       %Varianz/SNR
+taps = [1,0.4,0.3];%Gewichtung der einzelnen Verzögerungen
+delays = [0,1,2];           %Verzögerungen des Kanals
 
 
 %% generate signal
@@ -49,38 +49,27 @@ if (signal_in_passband)
     cp = upconversion(cp,fs,fc);
 end
 %% Channel
-for i = 1:length(SNR)
-    channel_array = cp;
+for i = 1:length(SNR)   %Calculate for each SNR
     %AWGN-Channel
-    channel_array = AWGN_channel(channel_array,SNR(i));
+    channel_array = AWGN_channel(cp,SNR(i));
 
-    for a = 1:4
+    for a = 1:4         %Calculate for AWGN(a=1) TD(a=2) TD-zf(a=3) TD-MMSE(a=4)
         equalized = channel_array;
-        if(a==2||a==3||a==4)
-            %Tapped Delay channel
+        if(a==2||a==3||a==4)    %apply TD-Channel
             channel_array_out = tapped_delay_channel(channel_array,taps,delays);
-            if (a==3)
+
+            if (a==3)           %ZF-Equalization
                 equalized = zf_equalizer(channel_array_out,taps);
-            elseif (a==4)
+            elseif (a==4)       %MMSE-Equalization
                 equalized = MMSE(channel_array_out,taps,SNR(i));
-            else
+            else                %No Equalization
                 equalized = channel_array_out;
             end
+
         end
 
-        %% Equalization
-        % zf-Equalizer
-        % if (a==3)
-        %     equalized = zf_equalizer(channel_array_out,taps);
-        % elseif (a==4)
-        %     equalized = MMSE(channel_array_out,taps,SNR);
-        % else
-        %     equalized = channel_array_out;
-        % end
-        %MLSEeq/Viterbi Equalizer
-        %equalized = mlseeq(channel_array,taps,[1+1i 1-1i -1+1i -1-1i],length(delays),'cont');
         %% shift to baseband
-        baseband_signal = equalized;
+        baseband_signal = reshape(equalized,1,[]);
         if (signal_in_passband)
             baseband_signal = downconversion(baseband_signal,fs,fc);
         end
