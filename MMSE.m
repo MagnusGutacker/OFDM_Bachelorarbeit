@@ -21,18 +21,21 @@ function output = MMSE(data,taps,SNR)
 % 
 % output = filter(f,1,data);
 
-M = length(taps)+30;
-
-H = convmtx(taps,M)';
-H(M-1:M,:) = [];
-H(1:2,:) = [];
-I = zeros(size(pinv(H),2), 1,1);
-I(1)=1;
-
-H_H = conj(H');
+% M = length(taps)+30;
+% 
+% H = convmtx(taps,M)';
+% H(M-1:M,:) = [];
+% H(1:2,:) = [];
+% I = zeros(size(pinv(H),2), 1,1);
+% I(1)=1;
+% 
+% H_H = conj(H');
+% 
+% SNR = db2mag(SNR);
+% f = pinv(H_H*H + (1/SNR)*eye(M))*H_H*I;
 
 SNR = db2mag(SNR);
-f = pinv(H_H*H + (1/SNR)*eye(M))*H_H*I;
+f = taps./(abs(taps).^2+SNR);
 
 output = conv(f,data);
 output(length(data)+1:end) = [];
