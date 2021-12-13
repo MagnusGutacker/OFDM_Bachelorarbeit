@@ -6,8 +6,15 @@ QAM_signal = QAM_signal/norm;
 
 output = zeros(length(QAM_signal(:,1)),length(QAM_signal(1,:))*size);
 counter = 1;
-
-if size == 2
+if size == 1
+for i = 1:length(QAM_signal)
+    if QAM_signal(i) < 0 
+        output(i) = 0;
+    else
+        output(i) = 1;
+    end
+end
+elseif size == 2
     for j = 1 : length(QAM_signal(1,:))
         for i = 1 : length(QAM_signal(:,1))
             I = real(QAM_signal(i,j));

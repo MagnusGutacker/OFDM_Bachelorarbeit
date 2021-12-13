@@ -6,7 +6,17 @@ function [output,norm] = QAM (parallel)
 % also ppassible to use qammod() function
 refconst = 1;
 output(1:length(parallel(:,1,1)),1:length(parallel(1,:,1))) = 0;
-if length(parallel(1,1,:)) == 2 %4QAM
+if length(parallel(1,1,:)) == 1
+    for i = 1:length(parallel(1,:))
+        for j = 1:length(parallel(:,1))
+            if parallel(j,i) == 0
+                output(j,i) = -1;
+            else
+                output(j,i) = 1;
+            end
+       end
+    end
+elseif length(parallel(1,1,:)) == 2 %4QAM
     for j = 1:length(parallel(:,1,1))
         for i = 1:length(parallel(1,:,1))
             if parallel(j,i,1) == 0
