@@ -3,7 +3,7 @@ clear;
 %OFDM
 %% Declare parameters
 
-signal_in_passband = false;      %true for frequency modulation
+signal_in_passband = false;     %true for frequency modulation
 
 N_sub = 64;                     %Anzahl der Unterträger
 symbol_size = 2;                %Symbolgröße z.B. 2 für 4-Qam oder 4 für 16-QAM
@@ -11,9 +11,9 @@ signal_length = 1000;            %Signallänge in OFDM Symbolen
 cp_size = ceil(N_sub/8);        %cyclic prefix Länge                
 fc = 5e9;                       %Trägerfrequenz
 fs = 4e7;                       %Bandbreite
-SNR = -10:3:20;                       %Varianz/SNR
-taps = [1,0.4,0.3];%Gewichtung der einzelnen Verzögerungen
-delays = [0,1,2];           %Verzögerungen des Kanals
+SNR = -10:2:20;                 %Varianz/SNR
+taps = [1,0.4,0.3];             %Gewichtung der einzelnen Verzögerungen
+delays = [0,1,2];               %Verzögerungen des Kanals
 
 
 %% generate signal
@@ -59,9 +59,9 @@ for i = 1:length(SNR)   %Calculate for each SNR
             channel_array_out = tapped_delay_channel(channel_array,taps,delays);
 
             if (a==3)           %ZF-Equalization
-                equalized = zf_equalizer(channel_array_out,taps);
+                equalized = zf_equalizer(channel_array_out,taps,delays);
             elseif (a==4)       %MMSE-Equalization
-                equalized = MMSE(channel_array_out,taps,SNR(i));
+                equalized = MMSE(channel_array_out,taps,delays,SNR(i));
             else                %No Equalization
                 equalized = channel_array_out;
             end
@@ -125,17 +125,18 @@ for i = 1:length(SNR)   %Calculate for each SNR
     end
 end
 figure('Name',"BER of equalized and not equalized Signal");
-subplot(4,1,[1 3]);
+%subplot(5,1,[1 3]);
 hold on;
 xlabel("SNR in dB");
 ylabel("BER");
 set(gca,'YScale','log')
-axis([ SNR(1) SNR(end) 10^(-5) 1]);
+axis([ SNR(1) SNR(end) 1/(signal_length*N_sub) 1]);
 plot(SNR,BER);
 legend({'AWGN-Channel','TD without zf','TD with zf','TD with MMSE'},'Location','southwest')
-subplot(4,1,4);
-xlabel("Delays");
-ylabel("Taps");
-stem(taps);
+% subplot(5,1,5);
+% axis([ -1 delays(end)+1 0 1.2]);
+% xlabel("Delays");
+% ylabel("Taps");
+% stem(taps);
 %scatterplot(reshape(QAM_modulated,1,[]));
 %scatterplot(fft_array);
