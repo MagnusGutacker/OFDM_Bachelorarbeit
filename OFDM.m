@@ -10,7 +10,7 @@ signal_length = 1000;           %Anzahl der OFDM Symbole
 cp_size = ceil(N_sub/8);        %cyclic prefix Länge                
 fc = 5e9;                       %Trägerfrequenz
 fs = 4e7;                       %Bandbreite
-SNR = -10:3:20;                 %Varianz/SNR
+SNR = -10:2:20;                 %Varianz/SNR
 taps = [1,0.4,0.3];             %Gewichtung der einzelnen Verzögerungen
 delays = [0,1,2];               %Verzögerungen des Kanals
 
