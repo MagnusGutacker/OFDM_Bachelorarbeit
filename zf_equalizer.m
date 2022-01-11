@@ -1,4 +1,4 @@
-function output = zf_equalizer(data,taps,delays)
+function output = zf_equalizer(data,H)
 %ZF_EQUALIZER Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -11,10 +11,11 @@ function output = zf_equalizer(data,taps,delays)
 % I = zeros(size(pinv(H),2), 1,1);
 % I(3)=1;
 
-TD_array = zeros(delays(end)+1,1);
-for i = 1:length(delays)
-    TD_array(delays(i)+1) = taps(i);
-end
+% TD_array = zeros(delays(end)+1,1);
+% for i = 1:length(delays)
+%     TD_array(delays(i)+1) = taps(i);
+% end
+TD_array = H;
 H = convmtx(TD_array,length(TD_array));
 H(length(H(1,:))+1:end,:) = [];
 H_inv = H^-1;

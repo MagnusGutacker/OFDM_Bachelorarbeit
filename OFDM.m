@@ -18,7 +18,7 @@ freq_off = 0.1;                 %Frequenz offset (bezogen auf T)
 a_off = 1.5;                    %Amplituden offset
 IQ_ph_off = pi/8;               %Phasen offset bei IQ_imbalance
 
-pilot_length = 1;
+pilot_length = 4;
 pilot = serial_to_parallel(randi([0 1],1,N_sub * symbol_size * pilot_length),N_sub,symbol_size);
 pilot = QAM(pilot);
 
@@ -56,7 +56,7 @@ if (signal_in_passband)
     cp = upconversion(cp,fs,fc);
 end
 
-pilot_modulated = cp(1:N_sub * pilot_length);
+pilot_modulated = cp(1:(N_sub + cp_size) * pilot_length );
 
 %% Channel
 for i = 1:length(SNR)   %Calculate for each SNR
@@ -82,11 +82,12 @@ for i = 1:length(SNR)   %Calculate for each SNR
         end
 
         %% Equalization 
+        H = LS_estimator(pilot_modulated,baseband_signal,SNR(i));
 
         if (a==3)           %ZF-Equalization
-            equalized = zf_equalizer(baseband_signal,taps,delays);
+            equalized = zf_equalizer(baseband_signal,H);
         elseif (a==4)       %MMSE-Equalization
-            equalized = MMSE(baseband_signal,taps,delays,SNR(i));
+            equalized = MMSE(baseband_signal,H,SNR(i));
         else                %No Equalization
             equalized = baseband_signal;
         end
@@ -107,7 +108,7 @@ for i = 1:length(SNR)   %Calculate for each SNR
         %% Channel Estimation
         fft_array_off = phase_offset(fft_array,ph_off);
 
-        H = LS_estimator(pilot,fft_array_off);
+       % H = LS_estimator(pilot,fft_array_off);
         %% remove pilot
 
         equalized = fft_array_off (pilot_length*N_sub+1:end);

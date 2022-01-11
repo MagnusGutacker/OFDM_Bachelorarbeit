@@ -1,12 +1,12 @@
-function output = MMSE(data,taps,delays,SNR)
+function output = MMSE(data,H_est,SNR)
 %MMSE Summary of this function goes here
 %   Detailed explanation goes here
-
-TD_array = zeros(delays(end)+1,1);
-for i = 1:length(delays)
-    TD_array(delays(i)+1) = taps(i);
-end
-
+% 
+% TD_array = zeros(delays(end)+1,1);
+% for i = 1:length(delays)
+%     TD_array(delays(i)+1) = taps(i);
+% end
+TD_array = H_est;
 for i = 1:length(TD_array)+2
     H(i:i+length(TD_array)-1,i) = TD_array;
 end
