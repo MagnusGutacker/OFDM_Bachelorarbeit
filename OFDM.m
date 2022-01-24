@@ -10,11 +10,12 @@ signal_length = 1000;           %Anzahl der OFDM Symbole
 cp_size = ceil(N_sub/8);        %cyclic prefix Länge                
 fc = 5e9;                       %Trägerfrequenz
 fs = 4e7;                       %Bandbreite
-SNR = -10:2:20;                 %Varianz/SNR
+SNR = -10:1:20;                 %Varianz/SNR
 taps = [1,0.4,0.3];             %Gewichtung der einzelnen Verzögerungen
 delays = [0,1,2];               %Verzögerungen des Kanals
-ph_off = pi/16;                  %Phasen offset
-freq_off = 0.1;                 %Frequenz offset (bezogen auf T)
+ph_off = pi/8;                  %Phasen offset
+freq_off = 0.0;                 %Frequenz offset (bezogen auf T)
+t_off = 0.01;                   %Abtastungs offset
 a_off = 1.5;                    %Amplituden offset
 IQ_ph_off = pi/8;               %Phasen offset bei IQ_imbalance
 
@@ -105,17 +106,28 @@ for i = 1:length(SNR)   %Calculate for each SNR
             fft_array(x:y) = fft(ifft_array_parallel(:,j));
         end
 
-        %% Channel Estimation
+        %% Sender-Empfänger Unzulänglichkeiten
+        %Phasen Offset
         fft_array_off = phase_offset(fft_array,ph_off);
+        fft_array_off = phase_offset_eq(fft_array_off,reshape(pilot,1,[]));
+        %Frequenz Offset
+        fft_array_off = frequency_offset(fft_array_off,freq_off);
+        %scatterplot(fft_array_off);
+        fft_array_off = frequency_offset_eq(fft_array_off,reshape(pilot,1,[]),freq_off);
+        %scatterplot(fft_array_off);
+        %falsche Abtastung
+        %fft_array_off = falsche_abtastung(fft_array_off,t_off);
 
-       % H = LS_estimator(pilot,fft_array_off);
+        %IQ_imbalance
+        fft_array_off = IQ_imbalance(fft_array_off,a_off,IQ_ph_off);
+
         %% remove pilot
 
-        equalized = fft_array_off (pilot_length*N_sub+1:end);
+        no_pilot = fft_array (pilot_length*N_sub+1:end);
 
         %% demodulate QAM
 
-        QAM_demodulated = QAM_demod(equalized,symbol_size,norm);
+        QAM_demodulated = QAM_demod(no_pilot,symbol_size,norm);
 
         %% parallel to serial
 
