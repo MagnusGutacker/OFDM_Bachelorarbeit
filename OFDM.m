@@ -14,12 +14,12 @@ SNR = -10:1:20;                 %Varianz/SNR
 taps = [1,0.4,0.3];             %Gewichtung der einzelnen Verzögerungen
 delays = [0,1,2];               %Verzögerungen des Kanals
 ph_off = pi/8;                  %Phasen offset
-freq_off = 0.0;                 %Frequenz offset (bezogen auf T)
-t_off = 0.01;                   %Abtastungs offset
+freq_off = 0.01;                %Frequenz offset (bezogen auf T)
+t_off = 0.08;                   %Abtastungs offset
 a_off = 1.5;                    %Amplituden offset
 IQ_ph_off = pi/8;               %Phasen offset bei IQ_imbalance
 
-pilot_length = 4;
+pilot_length = 10;
 pilot = serial_to_parallel(randi([0 1],1,N_sub * symbol_size * pilot_length),N_sub,symbol_size);
 pilot = QAM(pilot);
 
@@ -108,22 +108,25 @@ for i = 1:length(SNR)   %Calculate for each SNR
 
         %% Sender-Empfänger Unzulänglichkeiten
         %Phasen Offset
-        fft_array_off = phase_offset(fft_array,ph_off);
-        fft_array_off = phase_offset_eq(fft_array_off,reshape(pilot,1,[]));
+        fft_array_ph_off = phase_offset(fft_array,ph_off);
+        
         %Frequenz Offset
-        fft_array_off = frequency_offset(fft_array_off,freq_off);
-        %scatterplot(fft_array_off);
-        fft_array_off = frequency_offset_eq(fft_array_off,reshape(pilot,1,[]),freq_off);
-        %scatterplot(fft_array_off);
+        fft_array_freq_off = frequency_offset(fft_array_ph_off,freq_off);
+
         %falsche Abtastung
         %fft_array_off = falsche_abtastung(fft_array_off,t_off);
-
+        %scatterplot(fft_array_off);
         %IQ_imbalance
-        fft_array_off = IQ_imbalance(fft_array_off,a_off,IQ_ph_off);
+        %fft_array_off = IQ_imbalance(fft_array_freq_off,a_off,IQ_ph_off);
 
+        %% Unzulänglichkeiten Equalizer
+        %fft_array_off = IQImbalance_eq(fft_array_off,reshape(pilot,1,[]),norm);
+        fft_array_freq_eq = frequency_offset_eq(fft_array_freq_off,reshape(pilot,1,[]),freq_off);
+        fft_array_ph_eq = phase_offset_eq(fft_array_freq_eq,reshape(pilot,1,[]));
+        
         %% remove pilot
 
-        no_pilot = fft_array (pilot_length*N_sub+1:end);
+        no_pilot = fft_array_ph_eq(pilot_length*N_sub+1:end);
 
         %% demodulate QAM
 
