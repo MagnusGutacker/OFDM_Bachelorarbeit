@@ -5,31 +5,32 @@ clear;
 signal_in_passband = false;     %true for frequency modulation
 
 N_sub = 64;                     %Anzahl der Unterträger
-symbol_size = 2;                %Symbolgröße z.B. 2 für 4-Qam oder 4 für 16-QAM
-signal_length = 1000;           %Anzahl der OFDM Symbole
+symbol_size = [2,4];                %Symbolgröße z.B. 2 für 4-Qam oder 4 für 16-QAM
+signal_length = 100;           %Anzahl der OFDM Symbole
 cp_size = ceil(N_sub/8);        %cyclic prefix Länge                
 fc = 5e9;                       %Trägerfrequenz
 fs = 4e7;                       %Bandbreite
-SNR = -10:1:20;                 %Varianz/SNR
-taps = [1,0.4,0.3];             %Gewichtung der einzelnen Verzögerungen
-delays = [0,1,2];               %Verzögerungen des Kanals
+SNR = 0:2:30;                 %Varianz/SNR
+taps = [1,0.4,0.3,-0.1,0.1];             %Gewichtung der einzelnen Verzögerungen
+delays = [0,1,2,3,4];               %Verzögerungen des Kanals
 ph_off = pi/8;                  %Phasen offset
-freq_off = 0.01;                %Frequenz offset (bezogen auf T)
+freq_off = 0.001;                %Frequenz offset (bezogen auf T)
 t_off = 0.08;                   %Abtastungs offset
 a_off = 1.5;                    %Amplituden offset
 IQ_ph_off = pi/8;               %Phasen offset bei IQ_imbalance
 
-pilot_length = 10;
-pilot = serial_to_parallel(randi([0 1],1,N_sub * symbol_size * pilot_length),N_sub,symbol_size);
+for z = 1:length(symbol_size)
+pilot_length = 100;
+pilot = serial_to_parallel(randi([0 1],1,N_sub * symbol_size(z) * pilot_length),N_sub,symbol_size(z));
 pilot = QAM(pilot);
 
 %% generate signal
 
-input_signal = randi([0 1],1,N_sub * signal_length * symbol_size);
+input_signal = randi([0 1],1,N_sub * signal_length * symbol_size(z));
 
 %% serial to parallel
 
-parallel = serial_to_parallel(input_signal,N_sub,symbol_size);
+parallel = serial_to_parallel(input_signal,N_sub,symbol_size(z));
 
 %% QAM
 
@@ -106,22 +107,21 @@ for i = 1:length(SNR)   %Calculate for each SNR
             fft_array(x:y) = fft(ifft_array_parallel(:,j));
         end
 
+        fft_array1 = fft_array * (mean(abs(reshape(pilot,1,[])))/mean(abs(fft_array)));
         %% Sender-Empfänger Unzulänglichkeiten
         %Phasen Offset
-        fft_array_ph_off = phase_offset(fft_array,ph_off);
-        
+        fft_array_ph_off = phase_offset(fft_array1,ph_off);
         %Frequenz Offset
         fft_array_freq_off = frequency_offset(fft_array_ph_off,freq_off);
-
         %falsche Abtastung
         %fft_array_off = falsche_abtastung(fft_array_off,t_off);
         %scatterplot(fft_array_off);
         %IQ_imbalance
-        %fft_array_off = IQ_imbalance(fft_array_freq_off,a_off,IQ_ph_off);
+        fft_array_iq_off = IQ_imbalance(fft_array_freq_off,a_off,IQ_ph_off);
 
         %% Unzulänglichkeiten Equalizer
-        %fft_array_off = IQImbalance_eq(fft_array_off,reshape(pilot,1,[]),norm);
         fft_array_freq_eq = frequency_offset_eq(fft_array_freq_off,reshape(pilot,1,[]),freq_off);
+        fft_array_iq_eq = IQImbalance_eq(fft_array_freq_eq,reshape(pilot,1,[]),norm);
         fft_array_ph_eq = phase_offset_eq(fft_array_freq_eq,reshape(pilot,1,[]));
         
         %% remove pilot
@@ -130,7 +130,7 @@ for i = 1:length(SNR)   %Calculate for each SNR
 
         %% demodulate QAM
 
-        QAM_demodulated = QAM_demod(no_pilot,symbol_size,norm);
+        QAM_demodulated = QAM_demod(no_pilot,symbol_size(z),norm);
 
         %% parallel to serial
 
@@ -140,16 +140,16 @@ for i = 1:length(SNR)   %Calculate for each SNR
         %BER
         BitFehler = output_signal - input_signal;
         numberOfZeros = sum(BitFehler(:)==0);
-        BER(i,a) = 1 - numberOfZeros/length(BitFehler);
+        BER(i,a,z) = 1 - numberOfZeros/length(BitFehler);
 
         %SER
-        SymbolFehler = reshape(QAM_modulated,1,[]) - reshape(QAM(serial_to_parallel(output_signal,N_sub,symbol_size)),1,[]);
+        SymbolFehler = reshape(QAM_modulated,1,[]) - reshape(QAM(serial_to_parallel(output_signal,N_sub,symbol_size(z))),1,[]);
         numberOfZeros = sum(SymbolFehler(:)==0);
         SER = 1 - numberOfZeros/length(SymbolFehler);
-
     end
 end        
-
+end
+BER = reshape(BER,i,a*length(symbol_size));
 %% test plots
 
 % if (signal_in_passband)
@@ -172,7 +172,7 @@ ylabel("BER");
 set(gca,'YScale','log')
 axis([ SNR(1) SNR(end) 1/(signal_length*N_sub) 1]);
 plot(SNR,BER);
-legend({'AWGN-Channel','TD without zf','TD with zf','TD with MMSE'},'Location','southwest')
+legend({'AWGN-Channel','TD without zf','TD with zf','TD with MMSE','AWGN-Channel','TD without zf','TD with zf','TD with MMSE'},'Location','southwest')
 % subplot(5,1,5);
 % axis([ -1 delays(end)+1 0 1.2]);
 % xlabel("Delays");

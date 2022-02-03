@@ -3,12 +3,10 @@ function output = IQImbalance_eq(data,pilot,norm)
 %   Detailed explanation goes here
 
 data1 = data(1:length(pilot));
-ph_off_est = mean(angle(data1)-angle(pilot));
-data = exp(-1i * ph_off_est)*data;
-a_est = mean(abs(data))/norm;
-Q = imag(data);
-data = real(data) + 1i * Q /a_est;
+data2 = data1-real(pilot);
+data3 = exp(-1i * pi/8)*data;
+a_est = 1/mean(abs(data3));
 
-output = data;
+output = data3/a_est;
 end
 
