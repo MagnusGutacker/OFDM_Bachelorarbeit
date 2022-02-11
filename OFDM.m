@@ -5,14 +5,14 @@ clear;
 signal_in_passband = false;     %true for frequency modulation
 
 N_sub = 64;                     %Anzahl der Unterträger
-symbol_size = [2,4];                %Symbolgröße z.B. 2 für 4-Qam oder 4 für 16-QAM
+symbol_size = [2];                %Symbolgröße z.B. 2 für 4-Qam oder 4 für 16-QAM
 signal_length = 100;           %Anzahl der OFDM Symbole
 cp_size = ceil(N_sub/8);        %cyclic prefix Länge                
 fc = 5e9;                       %Trägerfrequenz
 fs = 4e7;                       %Bandbreite
-SNR = 0:2:30;                 %Varianz/SNR
-taps = [1,0.4,0.3,-0.1,0.1];             %Gewichtung der einzelnen Verzögerungen
-delays = [0,1,2,3,4];               %Verzögerungen des Kanals
+SNR = 0:2:16;                 %Varianz/SNR
+taps = [1,0.4,0.3];             %Gewichtung der einzelnen Verzögerungen
+delays = [0,1,2];               %Verzögerungen des Kanals
 ph_off = pi/8;                  %Phasen offset
 freq_off = 0.001;                %Frequenz offset (bezogen auf T)
 t_off = 0.08;                   %Abtastungs offset
@@ -65,7 +65,7 @@ for i = 1:length(SNR)   %Calculate for each SNR
     %AWGN-Channel
     channel_array = AWGN_channel(cp,SNR(i));
 
-    for a = 1:4         %Calculate for AWGN(a=1) TD(a=2) TD-zf(a=3) TD-MMSE(a=4)
+    for a = 1:5         %Calculate for AWGN(a=1) TD(a=2) TD-zf(a=3) TD-MMSE(a=4)
         channel_array_out = channel_array;
         if(a==2||a==3||a==4) 
             if (signal_in_passband)
@@ -108,6 +108,10 @@ for i = 1:length(SNR)   %Calculate for each SNR
         end
 
         fft_array1 = fft_array * (mean(abs(reshape(pilot,1,[])))/mean(abs(fft_array)));
+        if (a==5)
+            fft_array1 = MLSE(fft_array1,pilot,symbol_size(z),taps,signal_pilot);
+        end
+        fft_array1 = reshape(fft_array1,1,[]);
         %% Sender-Empfänger Unzulänglichkeiten
         %Phasen Offset
         fft_array_ph_off = phase_offset(fft_array1,ph_off);
@@ -172,7 +176,7 @@ ylabel("BER");
 set(gca,'YScale','log')
 axis([ SNR(1) SNR(end) 1/(signal_length*N_sub) 1]);
 plot(SNR,BER);
-legend({'AWGN-Channel','TD without zf','TD with zf','TD with MMSE','AWGN-Channel','TD without zf','TD with zf','TD with MMSE'},'Location','southwest')
+legend({'AWGN-Channel','TD without zf','TD with zf','TD with MMSE','MLSE','AWGN-Channel','TD without zf','TD with zf','TD with MMSE'},'Location','southwest')
 % subplot(5,1,5);
 % axis([ -1 delays(end)+1 0 1.2]);
 % xlabel("Delays");
