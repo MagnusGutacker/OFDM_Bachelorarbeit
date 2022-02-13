@@ -31,8 +31,8 @@ end
 Bm = zeros(M^(L+1),length(data));
 for k = 1:length(data)  %Für alle Datenpunkte berechnen
     counter = 1;
-    for i = 1:length(state_table(:,1))
-        for z = 1:4
+    for z = 1:4
+        for i = 1:length(state_table(:,1))
             Bm(counter,k)=abs((data(k)-Y(i,z)))^2;
             counter = counter + 1;
         end
@@ -42,37 +42,27 @@ end
 %% Path Metrics berechnen
 Pm = zeros(2^M,length(data)+1);
 Pm(2:end,1) = 1000;    
+
 u = 0:M-1;
-Index_Pm_default = u * M +1;
-Index_Bm_default = u*M*M;
+Index_default = u * M;
 for k = 1:length(data)
-    Index_Pm = Index_Pm_default;
-    Index_Bm = Index_Bm_default;
-    counter = 0;
-    for i = 1:length(Pm(:,1))
-        if counter > 3
-           Index_Pm = Index_Pm + 1 ;
-           counter = 0;
+    Pm_index = Index_default;
+    Bm_index = Index_default+1;
+    for i = 0:length(Pm(:,1))-1
+        if mod(i,4) == 0
+            Pm_index = Pm_index + 1;
         end
-        counter = counter + 1;
-        Index_Bm = Index_Bm + 1;
-        x = Pm(Index_Pm,k) + Bm(Index_Bm,k);
-        [a,b] = min(x);
-        Pm(i,k+1) = Pm(Index_Pm(b),k)+Bm(Index_Bm(b),k);
+        if max(Bm_index)>64
+            Bm_index = Bm_index - 64;
+        end
+        possible_Pm = [Pm(Pm_index(1),k)+Bm(Bm_index(1),k),
+                       Pm(Pm_index(2),k)+Bm(Bm_index(2),k),
+                       Pm(Pm_index(3),k)+Bm(Bm_index(3),k),
+                       Pm(Pm_index(4),k)+Bm(Bm_index(4),k)];
+        Pm(i+1,k+1) = min(possible_Pm);
+        Bm_index = Bm_index + 16;
     end
 end
-
-% for k = 1:length(data)
-%     for i = 0:length(Pm(:,1))-1
-%         Pm_index = mod(i,4)+1;
-%         Bm_index = mod(i,16)+1;
-%         possible_Pm = [Pm(Pm_index,k)+Bm(Bm_index,k),
-%                        Pm(Pm_index+4,k)+Bm(Bm_index+16,k),
-%                        Pm(Pm_index+8,k)+Bm(Bm_index+32,k),
-%                        Pm(Pm_index+12,k)+Bm(Bm_index+48,k)];
-%         Pm(i+1,k+1) = min(possible_Pm);
-%     end
-% end
 
 %% Minimalen Pfad finden
 for k = 1:length(Pm(1,:))
@@ -82,7 +72,7 @@ end
 
 %% States vom minimalen Pfad auswerten und so eingangs QAM-Symbole erhalten
 output = state_table(b,2);
-output(1) = [];
+output(end) = [];
 output = reshape(output,1,[]); 
 end
 
