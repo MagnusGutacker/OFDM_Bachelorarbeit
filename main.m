@@ -1,6 +1,30 @@
-function main(taps,N_sub,signal_length,symbol_size,snr_start,snr_end)
-%MAIN Summary of this function goes here
-%   Detailed explanation goes here
+function main(taps,N_sub,signal_length,symbol_size,snr_start,snr_end,filename)
+
+% define formats
+landscape = "-S930,350";
+portrait  = "-S640,480";
+
+% select format
+output_format = portrait;
+
+% Create an invisible figure.
+fh = figure(1);
+set(fh, "visible", "off");
+
+if taps == 1
+    taps = [1,0.5+0.5i,0.2+0.3i];
+elseif taps == 2
+    taps = [1,0.5,0.2];
+elseif taps == 3
+    taps = [1];
+elseif taps == 4
+    taps = [1,-0.5+0.3i,0.7-0.6i];
+elseif taps == 5
+    taps = [1,0.5,0.4,-0.3,0.2,0.1,0.1];
+elseif taps == 6
+    t = 1:9;
+    taps = [1,exp(-t/3).*randi([-1000,1000],1,9)/1000 .* exp(1i*randi([0,2*3*1000],1,9)/1000)];
+end
 
 SNR = snr_start:snr_end;            
 delays = [0,1,2];
@@ -49,14 +73,17 @@ for i = 1:length(SNR)
 
 end
 
-figure('Name',"BER of AWGN and TD-Channel");
 hold on;
-xlabel("SNR in dB");
+
+semilogy(SNR,BER);
+xlabel("SNR_{S} in dB",'Interpreter','latex');
 ylabel("BER");
-set(gca,'YScale','log')
 axis([ SNR(1) SNR(end) 1/(signal_length*N_sub) 1]);
-plot(SNR,BER);
+%set(gca,'YScale','log');
 legend({'AWGN-Channel','TD-Channel'});
+
+print(filename, "-dpng", output_format);
+
 end
 
 function [output] = QAM (parallel)
@@ -145,7 +172,7 @@ output = zeros(length(QAM_signal(:,1)),length(QAM_signal(1,:))*size);
 counter = 1;
 if size == 1
 for i = 1:length(QAM_signal)
-    if QAM_signal(i) < 0 
+    if real(QAM_signal(i)) < 0 
         output(i) = 0;
     else
         output(i) = 1;
@@ -217,5 +244,8 @@ demod = output;
 end
 
 function output = AWGN (data,snr)
-    output = data + sqrt(1/(10^(snr/10))^2).*randn(1,length(data));
+    Es = sum(abs(data).^2)/length(data);
+    SNR = 10^(snr/10);
+    n = sqrt(Es/(SNR*2))*(randn(1,length(data))+1i*randn(1,length(data)));
+    output = data + n;
 end

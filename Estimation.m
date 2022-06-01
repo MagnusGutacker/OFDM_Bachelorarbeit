@@ -1,11 +1,39 @@
-function Estimation(taps,N_sub,signal_length,symbol_size,snr_start,snr_end,pilot_length)
+function Estimation(taps,signal_length,symbol_size,snr_start,snr_end,pilot_length,estimation_length,filename)
 %MAIN Summary of this function goes here
-% Estimation([1,0.3,0.2],64,1000,2,0,20,50,10)
+% Estimation(1,1000,2,0,20,1,10)
 %   Detailed explanation goes here
 
+% define formats
+landscape = "-S930,350";
+portrait  = "-S640,480";
+
+% select format
+output_format = portrait;
+
+% Create an invisible figure.
+fh = figure(1);
+set(fh, "visible", "off");
+
+if taps == 1
+    t = 1:9;
+    taps = [1,exp(-t/3).*randi([-1000,1000],1,9)/1000 .* exp(1i*randi([0,2*3*1000],1,9)/1000)];
+elseif taps == 2
+    taps = [1,0.5,0.2];
+elseif taps == 3
+    taps = [1];
+elseif taps == 4
+    taps = [1,-0.5+0.3i,0.7-0.6i];
+elseif taps == 5
+    taps = [1,0.5,0.4,-0.3,0.2,0.1,0.1];
+elseif taps == 6
+    taps = [1,0.5+0.5i,0.2+0.3i];
+end
+
+N_sub = 64;
 SNR = snr_start:snr_end;            
-delays = [0,1,2];
+delays = 0:length(taps)-1;
 cp_size = ceil(N_sub/8);
+
 
 for z = 1:length(symbol_size)
 
@@ -55,16 +83,17 @@ for i = 1:length(SNR)   %Calculate for each SNR
     for a = 1:4         %Calculate for AWGN(a=1) TD(a=2) TD-zf(a=3) TD-MMSE(a=4)
         channel_array_out = channel_array;
         if(a==2||a==3||a==4) 
-            delays_channel = delays;
             %Tapped-delay-channel
-            channel_array_out = tapped_delay_channel(channel_array,taps,delays_channel);
+            channel_array_out = tapped_delay_channel(channel_array,taps,delays);
         end
         %% shift to baseband
 
         baseband_signal = reshape(channel_array_out,[],1);
 
         %% Equalization 
-        H = LS_estimator(pilot_modulated,baseband_signal,SNR(i));
+        if a == 2
+            H = LS_estimator(pilot_modulated,baseband_signal,estimation_length);
+        end
 
         if (a==3)           %ZF-Equalization
             equalized = zf_equalizer(baseband_signal,H);
@@ -116,26 +145,40 @@ end
 end
 
 %% Plot
-figure("Name",'Estimated Taps and real Taps');
+
+ymax = max([length(taps),estimation_length]);
+
 hold on;
-subplot(2,2,1);
-axis([ -1 delays(end)+1 0 1.2]);
-xlabel("Delays");
-ylabel("Taps");
-legend({'real Taps'},'Location','northeast')
-stem(taps);
-subplot(2,2,3);
-xlabel("Delays");
-ylabel("Taps");
-legend({'estimated Taps'},'Location','northeast')
-stem(H);
-subplot(2,2,[2 4]);
-xlabel("SNR in dB");
+subplot(3,2,5);
+stem(0:length(taps)-1,abs(taps));
+title("taps");
+axis([-1 ymax -0.3 max(abs(taps))+0.5]);
+xlabel("delays");
+ylabel("|taps|");
+for i = 1:length(taps)
+    txt = [num2str(round(100*abs(taps(i)))/100)];
+    text(i-1.4,abs(taps(i))+0.2,txt);
+end
+subplot(3,2,6);
+stem(0:length(H)-1,abs(H));
+title(['estimated taps (SNR=' num2str(SNR(end)) 'dB)']);
+axis([-1 ymax -0.3 max(abs(taps))+0.5]);
+xlabel("delays");
+ylabel("|taps|");
+for i = 1:estimation_length
+    txt = [num2str(round(100*abs(H(i)))/100)];
+    text(i-1.4,abs(H(i))+0.2,txt);
+end
+subplot(3,2,[1 2 3 4]);
+semilogy(SNR,BER);
+xlabel("SNR_{S} in dB",'Interpreter','latex');
 ylabel("BER");
+%set(gca,'YScale','log');
 axis([ SNR(1) SNR(end) 1/(signal_length*N_sub) 1]);
-plot(SNR,BER);
-set(gca,'YScale','log');
-legend({'AWGN-Channel','TD-Channel','ZF-Equalized','MMSE-Equalized'});
+legend({'AWGN-Channel','TD-Channel','ZF-Equalized','MMSE-Equalizded'},'Location','southwest');
+
+print(filename, "-dpng", output_format);
+
 end
 
 function [output] = QAM (parallel)
@@ -194,7 +237,6 @@ elseif length(parallel(1,1,:)) == 4 %16QAM
         end
     end
     output = output*0.316227766016838;
-elseif length(parallel(1,1,:)) == 6 %64QAM
 else
     output = parallel;
 end
@@ -214,7 +256,7 @@ output = zeros(length(QAM_signal(:,1)),length(QAM_signal(1,:))*size);
 counter = 1;
 if size == 1
 for i = 1:length(QAM_signal)
-    if QAM_signal(i) < 0 
+    if real(QAM_signal(i)) < 0 
         output(i) = 0;
     else
         output(i) = 1;
@@ -280,47 +322,63 @@ elseif size == 4
             counter = counter + 1;
         end
     end
-elseif size == 6
 end
 demod = output;
 end
 
 function output = zf_equalizer(data,H)
 TD_array = reshape(H,[],1);
-H = convmtx(TD_array,length(TD_array));
-H(length(H(1,:))+1:end,:) = [];
-H_inv = H^-1;
-f = H_inv(:,1)';
+I = zeros(length(H),1);
+I(1) = 1;
+
+m = zeros(length(TD_array),length(TD_array));
+for i = 1:length(TD_array)
+    a(1:length(TD_array)) = TD_array(i);
+    d = diag(a,1-i);
+    d(length(TD_array)+1:end,:) = [];
+    d(:,length(TD_array)+1:end) = [];
+    m = m+d;
+end
+H = m;
+
+f = (inv(ctranspose(H)*H))*ctranspose(H)*I;
 
 output = conv(f,data);
 output(length(data)+1:end) = [];
 end
 
 function output = MMSE(data,H_est,SNR)
-TD_array = H_est;
-for i = 1:length(TD_array)+2
-    H(i:i+length(TD_array)-1,i) = TD_array;
-end
+TD_array = reshape(H_est,[],1);
 
-H_H = conj(H');
-SNR = db2mag(SNR);
-F = (H_H * H + (1/(SNR))*eye(length(H(1,:))))^(-1)*H_H;
-f = F(:,1);
+I = zeros(length(H_est),1);
+I(1) = 1;
+
+m = zeros(length(TD_array),length(TD_array));
+for i = 1:length(TD_array)
+    a(1:length(TD_array)) = TD_array(i);
+    d = diag(a,1-i);
+    d(length(TD_array)+1:end,:) = [];
+    d(:,length(TD_array)+1:end) = [];
+    m = m+d;
+end
+H = m;
+
+SNR = 10^(SNR/10);
+f = (inv(ctranspose(H)*H+(1/(SNR))*eye(length(H_est), length(H_est))))*ctranspose(H)*I;
 
 output = conv(f,data);
 output(length(data)+1:end) = [];
 end
 
-function H = LS_estimator(pilot,data,snr)
-% not working on Octave 
-% noise_var = 1/(10^(snr/10));
-% pilot = reshape(pilot,[],1);
-% H_LS = pinv(data(1:length(pilot)))*pilot;
-% W = 1/noise_var * autocorr(data(1:length(pilot)),'NumMA',2);
-% H = W * H_LS;
-
-
-H = pinv(diag(pilot))*data(1:length(pilot));
+function H = LS_estimator(pilot,data,n)
+pilot = reshape(pilot,[],1);
+nFFT = 2^(nextpow2(length(data(1:length(pilot))))+1);
+F = fft(data(1:length(pilot)),nFFT);
+F_p = fft(pilot(1:length(pilot)),nFFT);
+F = F./F_p;     %F.*conj(F_p);
+f = ifft(F);
+f = f(1:(n));
+H = f./f(1);
 end
 
 function output = cyclic_prefix(data,cp_size,N_sub)
@@ -355,5 +413,8 @@ end
 end
 
 function output = AWGN (data,snr)
-    output = data + sqrt(1/(10^(snr/10))^2).*randn(1,length(data));
+    Es = sum(abs(data).^2)/length(data);
+    SNR = 10^(snr/10);
+    n = sqrt(Es/(SNR*2))*(randn(1,length(data))+1i*randn(1,length(data)));
+    output = data + n;
 end

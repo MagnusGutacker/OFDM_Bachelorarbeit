@@ -1,10 +1,37 @@
-function Equalizer(taps,N_sub,signal_length,symbol_size,snr_start,snr_end)
+function Equalizer(taps,signal_length,symbol_size,snr_start,snr_end,filename)
 %MAIN Summary of this function goes here
-% Equalizer([1,0.3,0.2],64,1000,2,0,20)
+% Equalizer(1,1000,2,0,20)
 %   Detailed explanation goes here
 
+% define formats
+landscape = "-S930,350";
+portrait  = "-S640,480";
+
+% select format
+output_format = portrait;
+
+% Create an invisible figure.
+fh = figure(1);
+set(fh, "visible", "off");
+
+if taps == 1
+    taps = [1,0.5+0.5i,0.2+0.3i];
+elseif taps == 2
+    taps = [1,0.5,0.2];
+elseif taps == 3
+    taps = [1];
+elseif taps == 4
+    taps = [1,-0.5+0.3i,0.7-0.6i];
+elseif taps == 5
+    taps = [1,0.5,0.4,-0.3,0.2,0.1,0.1];
+elseif taps == 6
+    t = 1:9;
+    taps = [1,exp(-t/3).*randi([-1000,1000],1,9)/1000 .* exp(1i*randi([0,2*3*1000],1,9)/1000)];
+end
+
 SNR = snr_start:snr_end;            
-delays = [0,1,2];
+delays = 0:length(taps)-1;
+N_sub = 64;
 
 input_signal = randi([0 1],1,N_sub * signal_length * symbol_size);
 
@@ -21,7 +48,7 @@ end
 
 
 for i = 1:length(SNR)
-    channel_array = AWGN(ifft_array,SNR(i),'measured');
+    channel_array = AWGN(ifft_array,SNR(i));
     for a = 1:4
 
         channel_array_out = channel_array;
@@ -62,14 +89,16 @@ for i = 1:length(SNR)
 
 end
 
-figure('Name',"BER of AWGN and TD-Channel");
 hold on;
-xlabel("SNR in dB");
-ylabel("BER");
+
+semilogy(SNR,BER,'LineWidth',3);
+xlabel("SNR_{S} in dB",'Interpreter','latex')
+ylabel("BER")
+axis([ SNR(1) SNR(end) 1/(signal_length*N_sub) 1])
 set(gca,'YScale','log');
-axis([ SNR(1) SNR(end) 1/(signal_length*N_sub) 1]);
-plot(SNR,BER);
-legend({'AWGN-Channel','TD-Channel','ZF-Equalized','MMSE-Equalizded'});
+legend({'AWGN-Channel','TD-Channel','ZF-Equalized','MMSE-Equalized'},'Location','southwest');
+print(filename, "-dpng", output_format);
+
 end
 
 function [output] = QAM (parallel)
@@ -155,7 +184,7 @@ output = zeros(length(QAM_signal(:,1)),length(QAM_signal(1,:))*size);
 counter = 1;
 if size == 1
 for i = 1:length(QAM_signal)
-    if QAM_signal(i) < 0 
+    if real(QAM_signal(i)) < 0 
         output(i) = 0;
     else
         output(i) = 1;
@@ -228,30 +257,51 @@ end
 
 function output = zf_equalizer(data,H)
 TD_array = reshape(H,[],1);
-H = convmtx(TD_array,length(TD_array));
-H(length(H(1,:))+1:end,:) = [];
-H_inv = H^-1;
-f = H_inv(:,1)';
+I = zeros(length(H),1);
+I(1) = 1;
+
+m = zeros(length(TD_array),length(TD_array));
+for i = 1:length(TD_array)
+    a(1:length(TD_array)) = TD_array(i);
+    d = diag(a,1-i);
+    d(length(TD_array)+1:end,:) = [];
+    d(:,length(TD_array)+1:end) = [];
+    m = m+d;
+end
+H = m;
+
+f = (inv(ctranspose(H)*H))*ctranspose(H)*I;
 
 output = conv(f,data);
 output(length(data)+1:end) = [];
 end
 
 function output = MMSE(data,H_est,SNR)
-TD_array = H_est;
-for i = 1:length(TD_array)+2
-    H(i:i+length(TD_array)-1,i) = TD_array;
-end
+TD_array = reshape(H_est,[],1);
 
-H_H = conj(H');
-SNR = db2mag(SNR);
-F = (H_H * H + (1/(SNR))*eye(length(H(1,:))))^(-1)*H_H;
-f = F(:,1);
+I = zeros(length(H_est),1);
+I(1) = 1;
+
+m = zeros(length(TD_array),length(TD_array));
+for i = 1:length(TD_array)
+    a(1:length(TD_array)) = TD_array(i);
+    d = diag(a,1-i);
+    d(length(TD_array)+1:end,:) = [];
+    d(:,length(TD_array)+1:end) = [];
+    m = m+d;
+end
+H = m;
+
+SNR = 10^(SNR/10);
+f = (inv(ctranspose(H)*H+(1/(SNR))*eye(length(H_est), length(H_est))))*ctranspose(H)*I;
 
 output = conv(f,data);
 output(length(data)+1:end) = [];
 end
 
 function output = AWGN (data,snr)
-    output = data + sqrt(1/(10^(snr/10))^2).*randn(1,length(data));
+    Es = sum(abs(data).^2)/length(data);
+    SNR = 10^(snr/10);
+    n = sqrt(Es/(SNR*2))*(randn(1,length(data))+1i*randn(1,length(data)));
+    output = data + n;
 end
